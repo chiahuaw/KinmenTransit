@@ -20,6 +20,18 @@ for (m in  1:2) {
     
     if (Temp$status == "OK") {
       
+      model.t = 0
+      model.w = 0
+        
+      for (i2 in 1:length(Temp$routes[[1]]$legs[[1]]$steps)) {
+        if (Temp$routes[[1]]$legs[[1]]$steps[[i2]]$travel_mode=="TRANSIT") {
+          model.t = model.t + Temp$routes[[1]]$legs[[1]]$steps[[i2]]$duration$value
+        }
+        if (Temp$routes[[1]]$legs[[1]]$steps[[i2]]$travel_mode=="WALKING") {
+          model.w = model.w + Temp$routes[[1]]$legs[[1]]$steps[[i2]]$duration$value
+        }
+      }
+      
       Temp2 = data.frame(
         targetx1 = km$X[Temp$target[1]],
         targety1 = km$Y[Temp$target[1]],
@@ -35,11 +47,13 @@ for (m in  1:2) {
         arrivaltime = ifelse(is.null(Temp$routes[[1]]$legs[[1]]$arrival_time$text),"",Temp$routes[[1]]$legs[[1]]$arrival_time$text),
         transitdistance = Temp$routes[[1]]$legs[[1]]$distance$value,
         transittime = Temp$routes[[1]]$legs[[1]]$duration$value,
+        bustime = model.t,
+        walktime = model.w,
         stringsAsFactors = F
       )
       
       kmtransit = rbind(kmtransit,Temp2)
-      rm(Temp);rm(Temp2)
+      rm(Temp);rm(Temp2);rm(model.t);rm(model.w)
     } else {
       rm(Temp)
     }
@@ -49,8 +63,15 @@ for (m in  1:2) {
   
 }
 
-kmtransit$transittime = round(kmtransit$transittime/60,1)
-kmtransit$transitdistance = round(kmtransit$transitdistance/1000,1)
 
-write.csv(kmtransit,file=paste0(basepath,"/kmtransit.csv"),fileEncoding = "UTF-8")
+kmtransit = mutate(kmtransit,
+                   transittime = round(transittime/60,1),
+                   transitdistance = round(transitdistance/1000,1),
+                   bustime = round(bustime/60,1),
+                   walktime= round(walktime/60,1),
+                   waittime = ifelse((transittime-bustime-walktime)<0,0,(transittime-bustime-walktime)),
+                   td = transittime/d
+                   )
+
+write.csv(kmtransit,file="kmtransit.csv",fileEncoding = "UTF-8",row.names = F)
 
